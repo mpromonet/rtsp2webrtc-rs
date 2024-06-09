@@ -1,0 +1,21 @@
+[package]
+name = "rtsp2webrtc-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+retina = "*"
+webrtc = "*"
+anyhow = "1.0"
+futures = "0.3"
+clap = { version = "4.1.4", features = ["derive"] }
+log = "0.4"
+serde_json = "1.0"
+actix = "0.13.3"
+tokio = { version = "1.5", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal"] }
+env_logger = "0.11"
+actix-web = "4.6"
+actix-files = "0.6"
+url = "2.2.1"
