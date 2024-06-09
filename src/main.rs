@@ -111,11 +111,15 @@ async fn whep(bytes: web::Bytes, data: web::Data<Arc<API>>) -> HttpResponse {
         .add_track(Arc::clone(&track) as Arc<dyn TrackLocal + Send + Sync>)
         .await.unwrap();
 
-    let sdp_string = String::from_utf8(bytes.to_vec()).unwrap();
-    let sdp: RTCSessionDescription = serde_json::from_str(&sdp_string).unwrap();
-    downstream_conn.set_remote_description(sdp).await.unwrap();
+    let sdp = String::from_utf8(bytes.to_vec()).unwrap();
+    let offer = RTCSessionDescription::offer(sdp).unwrap();
+    downstream_conn.set_remote_description(offer).await.unwrap();
     let answer = downstream_conn.create_answer(None).await.unwrap();
     downstream_conn.set_local_description(answer.clone()).await.unwrap();
 
-    HttpResponse::Ok().body(answer.sdp.clone())
+    HttpResponse::Ok()
+        .content_type("application/sdp")
+        .append_header(("Location", "/api/whep?peerid"))
+        .append_header(("Access-Control-Expose-Headers","Location"))
+        .body(answer.sdp.clone())
 }
