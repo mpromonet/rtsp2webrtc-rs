@@ -23,7 +23,7 @@ use webrtc::{
         configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
         sdp::session_description::RTCSessionDescription,
     },
-    rtp_transceiver::rtp_codec::{RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType},
+    rtp_transceiver::rtp_codec::RTCRtpCodecCapability,
     track::track_local::{track_local_static_sample::TrackLocalStaticSample, TrackLocal},
 };
 
@@ -132,18 +132,6 @@ async fn whep(bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
     };
 
     let downstream_conn = Arc::new(ctx.api.new_peer_connection(downstream_cfg).await.unwrap());
-    let tr = downstream_conn
-        .add_transceiver_from_kind(RTPCodecType::Video, None)
-        .await.unwrap();
-
-    tr.set_codec_preferences(vec![
-        RTCRtpCodecParameters {
-            capability: RTCRtpCodecCapability {
-                mime_type: MIME_TYPE_H264.to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        }]).await.unwrap();
 
     let sender = downstream_conn
         .add_track(Arc::clone(&ctx.track) as Arc<dyn TrackLocal + Send + Sync>)
@@ -159,6 +147,7 @@ async fn whep(bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
     downstream_conn.set_remote_description(offer).await.unwrap();
     let answer = downstream_conn.create_answer(None).await.unwrap();
     downstream_conn.set_local_description(answer.clone()).await.unwrap();
+    downstream_conn.gathering_complete_promise().await.recv().await;
 
     tokio::spawn(async move {
         let (ice_conn_state_tx, ice_conn_state_rx) = tokio::sync::mpsc::unbounded_channel();
