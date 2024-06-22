@@ -1,9 +1,36 @@
 <html>
 <head>
     <script src="https://unpkg.com/@eyevinn/whep-video-component@latest/dist/whep-video.component.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #video {
+            height: 100%;
+            flex: auto;
+            overflow-y: auto;
+            align-content: center;
+            text-align: center;
+        }
+        footer {
+            text-align: center;
+            flex: 1;
+        }
+
+        footer > * {
+            display: inline;
+        }        
+    </style>
 </head>
 <body>
     <whep-video id="video" muted autoplay></whep-video>
+    <footer>
+        <a href="https://github.com/mpromonet/rtsp2webrtc-rs">rtsp2webrtc-rs</a>
+    </footer>
     <script>
         video.setAttribute('src', `${location.origin}/api/whep`);
     </script>
