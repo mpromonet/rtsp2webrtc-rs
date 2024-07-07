@@ -30,9 +30,12 @@
     <whep-video id="video" muted autoplay></whep-video>
     <footer>
         <a href="https://github.com/mpromonet/rtsp2webrtc-rs">rtsp2webrtc-rs</a>
+        <div id="version"></div>
     </footer>
     <script>
         video.setAttribute('src', `${location.origin}/api/whep`);
+
+        fetch("/api/version").then(r => r.json()).then(r => version.innerText = r);
     </script>
 </body>
 </html>

@@ -114,7 +114,8 @@ async fn main() {
 
 #[get("/api/version")]
 async fn version() -> HttpResponse {
-    let data = json!("version");
+    let version = env!("GIT_VERSION");
+    let data = json!(version);
 
     HttpResponse::Ok().json(data)
 }
