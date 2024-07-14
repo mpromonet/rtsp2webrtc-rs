@@ -9,6 +9,7 @@
 
 use tokio::sync::broadcast;
 use std::sync::Arc;
+use log::debug;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use webrtc::api::media_engine::MIME_TYPE_H264;
 use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
@@ -34,7 +35,7 @@ impl Clone for StreamsDef {
 
 impl StreamsDef {
     pub fn new(name: String) -> Self {
-        let (tx, rx) = broadcast::channel::<Vec<u8>>(100);
+        let (tx, rx) = broadcast::channel::<Vec<u8>>(1024*1024);
 
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
@@ -51,7 +52,9 @@ impl StreamsDef {
     pub fn start(&self) {
         let self_clone = self.clone();
         tokio::spawn(async move {
-            while let Ok(data) = self_clone.rx.resubscribe().recv().await {
+            let mut rx = self_clone.rx.resubscribe();
+            while let Ok(data) = rx.recv().await {
+                debug!("Received data:{}\n", data.len());
                 let sample = Sample {
                     data: data.into(),
                     ..Default::default()};
