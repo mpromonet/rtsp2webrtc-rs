@@ -7,20 +7,21 @@
 **
 ** -------------------------------------------------------------------------*/
 
+use std::collections::HashMap;
 use std::sync::Arc;
-use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use webrtc::api::API;
+use crate::streamdef::StreamsDef;
 
 pub struct AppContext {
     pub api: Arc<API>,
-    pub track: Arc<TrackLocalStaticSample>,
+    pub streams: HashMap<String,Arc<StreamsDef>>,
 }
 
 impl AppContext {
-    pub fn new(api: Arc<API>, track: Arc<TrackLocalStaticSample>) -> Self {
+    pub fn new(api: Arc<API>, streams: HashMap<String,Arc<StreamsDef>>) -> Self {
         Self {
             api: api.clone(),
-            track: track.clone(),
+            streams: streams.clone(),
         }
     }
 }

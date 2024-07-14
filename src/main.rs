@@ -13,22 +13,20 @@ use clap::Parser;
 use log::{debug, info};
 use std::sync::Arc;
 use serde_json::json;
-use tokio::sync::broadcast;
 use webrtc::{
-    api::{interceptor_registry::register_default_interceptors, media_engine::MIME_TYPE_H264, APIBuilder},
+    api::{interceptor_registry::register_default_interceptors, APIBuilder},
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
     interceptor::registry::Registry,
-    media::Sample,
     peer_connection::{
         configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
         sdp::session_description::RTCSessionDescription,
     },
-    rtp_transceiver::rtp_codec::RTCRtpCodecCapability,
-    track::track_local::{track_local_static_sample::TrackLocalStaticSample, TrackLocal},
+    track::track_local::TrackLocal,
 };
 
 mod rtspclient;
 mod appcontext;
+mod streamdef;
 
 use crate::appcontext::AppContext;
 
@@ -49,10 +47,10 @@ async fn main() {
 
     let opts = Opts::parse();
 
-    let (tx, rx) = broadcast::channel::<Vec<u8>>(100);
+    let stream = streamdef::StreamsDef::new("video".to_owned());
 
     // start the RTSP clients
-    tokio::spawn(rtspclient::run(opts.url.clone(), opts.transport.clone(), tx.clone()));
+    tokio::spawn(rtspclient::run(opts.url.clone(), opts.transport.clone(), stream.tx.clone()));
 
     // webrtc
     let mut m = webrtc::api::media_engine::MediaEngine::default();
@@ -67,28 +65,14 @@ async fn main() {
         .build());
 
     //create track
-    let track = Arc::new(TrackLocalStaticSample::new(
-        RTCRtpCodecCapability {
-            mime_type: MIME_TYPE_H264.to_owned(),
-            ..Default::default()
-        },
-        format!("video"),
-        "video".to_owned(),
-    ));        
-    let track_clone = Arc::clone(&track);
-    tokio::spawn(async move {
-        while let Ok(data) = rx.resubscribe().recv().await {
-            let sample = Sample {
-                data: data.into(),
-                ..Default::default()};
-            track_clone.write_sample(&sample).await.unwrap();
-        }
-    });
+    stream.start();
+    let mut streams = std::collections::HashMap::new();
+    streams.insert(stream.name.clone(), Arc::new(stream.clone()));
 
 
     info!("start actix web server");
     HttpServer::new( move || {
-        App::new().app_data(web::Data::new(AppContext::new(api.clone(), track.clone())))
+        App::new().app_data(web::Data::new(AppContext::new(api.clone(), streams.clone())))
             .service(version)
             .service(whep)
             .service(web::redirect("/", "/index.html"))
@@ -125,8 +109,9 @@ async fn whep(bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
 
     let downstream_conn = Arc::new(ctx.api.new_peer_connection(downstream_cfg).await.unwrap());
 
+    let stream = Arc::clone(&ctx.streams.get("video").unwrap());
     let sender = downstream_conn
-        .add_track(Arc::clone(&ctx.track) as Arc<dyn TrackLocal + Send + Sync>)
+        .add_track(stream.track.clone() as Arc<dyn TrackLocal + Send + Sync>)
         .await.unwrap();
     
     tokio::spawn(async move {
