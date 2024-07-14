@@ -15,7 +15,7 @@ use std::sync::Arc;
 use serde_json::json;
 use tokio::sync::broadcast;
 use webrtc::{
-    api::{interceptor_registry::register_default_interceptors, media_engine::MIME_TYPE_H264, APIBuilder, API},
+    api::{interceptor_registry::register_default_interceptors, media_engine::MIME_TYPE_H264, APIBuilder},
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
     interceptor::registry::Registry,
     media::Sample,
@@ -28,6 +28,9 @@ use webrtc::{
 };
 
 mod rtspclient;
+mod appcontext;
+
+use crate::appcontext::AppContext;
 
 #[derive(Parser)]
 struct Opts {
@@ -38,19 +41,7 @@ struct Opts {
     transport: Option<String>,    
 }
 
-struct AppContext {
-    api: Arc<API>,
-    track: Arc<TrackLocalStaticSample>,
-}
 
-impl AppContext {
-    pub fn new(api: Arc<API>, track: Arc<TrackLocalStaticSample>) -> Self {
-        Self {
-            api: api.clone(),
-            track: track.clone(),
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() {
