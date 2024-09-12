@@ -8,22 +8,32 @@
 ** -------------------------------------------------------------------------*/
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use webrtc::api::API;
 use crate::streamdef::StreamsDef;
 
 pub struct AppContext {
     pub api: Arc<API>,
-    pub streams: HashMap<String,Arc<StreamsDef>>,
+    pub streams: HashMap<String,Arc<Mutex<StreamsDef>>>,
     pub stunurl: String,
 }
 
 impl AppContext {
-    pub fn new(api: Arc<API>, streams: HashMap<String,Arc<StreamsDef>>, stunurl: String) -> Self {
+    pub fn new(api: Arc<API>, streams: HashMap<String,Arc<Mutex<StreamsDef>>>, stunurl: String) -> Self {
         Self {
             api: api.clone(),
             streams: streams.clone(),
             stunurl: stunurl.clone(),
+        }
+    }
+}
+
+impl Clone for AppContext {
+    fn clone(&self) -> Self {
+        Self {
+            api: self.api.clone(),
+            streams: self.streams.clone(),
+            stunurl: self.stunurl.clone(),
         }
     }
 }

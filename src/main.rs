@@ -9,11 +9,15 @@
 
 use actix_files::Files;
 use actix_web::{get, post, web, App, HttpServer, HttpResponse};
+use anyhow::Error;
 use clap::Parser;
 use log::{debug, info};
-use std::sync::Arc;
 use serde_json::json;
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::sync::{Arc, Mutex};
 use webrtc::{
     api::{interceptor_registry::register_default_interceptors, APIBuilder},
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
@@ -30,11 +34,12 @@ mod appcontext;
 mod streamdef;
 
 use crate::appcontext::AppContext;
+use streamdef::StreamsDef;
 
 #[derive(Parser)]
 struct Opts {
-    #[arg(long)]
-    url: url::Url,
+    #[clap(short)]
+    config: String,    
 
     #[clap(short)]
     transport: Option<String>,   
@@ -44,6 +49,13 @@ struct Opts {
 }
 
 
+fn read_json_file(file_path: &str) -> Result<serde_json::Value, Error> {
+    let mut file = File::open(file_path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let data = serde_json::from_str(&contents)?;
+    Ok(data)
+}
 
 #[tokio::main]
 async fn main() {
@@ -51,10 +63,18 @@ async fn main() {
 
     let opts = Opts::parse();
 
-    let stream = streamdef::StreamsDef::new("video".to_owned());
+    let mut streams_defs = HashMap::new();
+    match read_json_file(opts.config.as_str()) {
+        Ok(data) => {
+            let urls = data["urls"].as_object().unwrap();
+            for (key, value) in urls.into_iter() {
+                let url = url::Url::parse(value["video"].as_str().unwrap()).unwrap().clone();
+                streams_defs.insert(key.to_owned(), Arc::new(Mutex::new(StreamsDef::new(key.to_owned(), url.clone()))));
+            }
+        },
+        Err(err) => println!("Error reading JSON file: {:?}", err),
+    }
 
-    // start the RTSP clients
-    tokio::spawn(rtspclient::run(opts.url.clone(), opts.transport.clone(), stream.tx.clone()));
 
     // webrtc
     let mut m = webrtc::api::media_engine::MediaEngine::default();
@@ -68,15 +88,17 @@ async fn main() {
         .with_interceptor_registry(registry)
         .build());
 
-    //create track
-    stream.start();
-    let mut streams = std::collections::HashMap::new();
-    streams.insert(stream.name.clone(), Arc::new(stream.clone()));
+    // start the RTSP clients
+    let app_context = appcontext::AppContext::new(api.clone(), streams_defs, opts.stunurl.clone());
+    app_context.streams.values().for_each(|streamdef| {
+        let stream = streamdef.lock().unwrap();
+        tokio::spawn(rtspclient::run(stream.url.clone(), opts.transport.clone(), stream.tx.clone()));
+    });
 
 
     info!("start actix web server");
     HttpServer::new( move || {
-        App::new().app_data(web::Data::new(AppContext::new(api.clone(), streams.clone(), opts.stunurl.clone())))
+        App::new().app_data(web::Data::new(app_context.clone()))
             .service(version)
             .service(whep)
             .service(web::redirect("/", "/index.html"))
@@ -119,7 +141,8 @@ async fn whep(query: web::Query<WhepQuery>, bytes: web::Bytes, data: web::Data<A
     let downstream_conn = Arc::new(ctx.api.new_peer_connection(downstream_cfg).await.unwrap());
 
     let stream_name = &query.stream_name;
-    let stream = Arc::clone(&ctx.streams.get(stream_name).unwrap());
+    let stream_wrap =  Arc::clone(&ctx.streams.get(stream_name).unwrap());
+    let stream = stream_wrap.lock().unwrap();
     let sender = downstream_conn
         .add_track(stream.track.clone() as Arc<dyn TrackLocal + Send + Sync>)
         .await.unwrap();

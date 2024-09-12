@@ -17,6 +17,7 @@ use webrtc::media::Sample;
 
 pub struct StreamsDef {
     pub name: String,
+    pub url: url::Url,
     pub tx: broadcast::Sender<Vec<u8>>,
     pub rx: broadcast::Receiver<Vec<u8>>,
     pub track: Arc<TrackLocalStaticSample>,
@@ -26,6 +27,7 @@ impl Clone for StreamsDef {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
+            url: self.url.clone(),
             tx: self.tx.clone(),
             rx: self.rx.resubscribe(),
             track: self.track.clone(),
@@ -34,7 +36,7 @@ impl Clone for StreamsDef {
 }
 
 impl StreamsDef {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, url: url::Url) -> Self {
         let (tx, rx) = broadcast::channel::<Vec<u8>>(1024*1024);
 
         let track = Arc::new(TrackLocalStaticSample::new(
@@ -46,7 +48,9 @@ impl StreamsDef {
             name.clone(),
         ));
 
-        Self { name, tx,  rx, track }
+        let instance = Self { name, url, tx,  rx, track };
+        instance.start();
+        instance
     }
 
     pub fn start(&self) {
