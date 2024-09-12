@@ -100,6 +100,8 @@ async fn main() {
     HttpServer::new( move || {
         App::new().app_data(web::Data::new(app_context.clone()))
             .service(version)
+            .service(streams)
+            .service(logger_level)            
             .service(whep)
             .service(web::redirect("/", "/index.html"))
             .service(Files::new("/", "./www"))
@@ -117,6 +119,53 @@ async fn main() {
 async fn version() -> HttpResponse {
     let version = env!("GIT_VERSION");
     let data = json!(version);
+
+    HttpResponse::Ok().json(data)
+}
+
+#[get("/api/streams")]
+async fn streams(data: web::Data<appcontext::AppContext>) -> HttpResponse {
+    let app_context = data.get_ref();
+    let mut data = json!({});
+    for (key, streamdef) in &app_context.streams {
+        data[key] = json!({
+            "name": streamdef.lock().unwrap().name,
+            "url": streamdef.lock().unwrap().url.as_str(),
+        });
+    }
+
+    HttpResponse::Ok().json(data)
+}
+
+#[get("/api/log")]
+async fn logger_level(query: web::Query<HashMap<String, String>>) -> HttpResponse {
+    
+    if let Some(level_str) = query.get("level") {
+        match level_str.as_str() {
+            "Off" => log::set_max_level(log::LevelFilter::Off),
+            "Error" => log::set_max_level(log::LevelFilter::Error),
+            "Warn" => log::set_max_level(log::LevelFilter::Warn),
+            "Info" => log::set_max_level(log::LevelFilter::Info),
+            "Debug" => log::set_max_level(log::LevelFilter::Debug),
+            "Trace" => log::set_max_level(log::LevelFilter::Trace),
+            _ => (),
+        }
+    }
+
+    let level = log::max_level(); 
+
+    let level_str = match level {
+        log::LevelFilter::Off => "Off",
+        log::LevelFilter::Error => "Error",
+        log::LevelFilter::Warn => "Warn",
+        log::LevelFilter::Info => "Info",
+        log::LevelFilter::Debug => "Debug",
+        log::LevelFilter::Trace => "Trace",
+    };
+
+    let data = json!({
+        "level": level_str,
+    });
 
     HttpResponse::Ok().json(data)
 }

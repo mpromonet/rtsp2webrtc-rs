@@ -9,6 +9,30 @@
             display: flex;
             flex-direction: column;
         }
+        nav {
+            background-color: #333;
+            overflow: hidden;
+        }
+        nav a {
+            float: left;
+            display: block;
+            color: #f2f2f2;
+            text-align: center;
+            padding: 1rem 1rem;
+            user-select: none;
+        }
+        nav a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+        nav a.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        nav a.active:hover {
+            background-color: #4CAF50;
+            color: black;
+        }
         #video {
             height: 100%;
             flex: auto;
@@ -27,15 +51,50 @@
     </style>
 </head>
 <body>
+    <header>
+        <nav id="menu"></nav>
+    </header>     
     <whep-video id="video" muted autoplay></whep-video>
     <footer>
         <a href="https://github.com/mpromonet/rtsp2webrtc-rs">rtsp2webrtc-rs</a>
         <div id="version"></div>
     </footer>
     <script>
-        video.setAttribute('src', `${location.origin}/api/whep?stream_name=Nordland`);
-
         fetch("/api/version").then(r => r.json()).then(r => version.innerText = r);
+
+        function selectStream(stream) {
+        for (const opt of menu.getElementsByTagName('a')) {
+            if (opt.src === stream) {
+                video.setAttribute("src", `${location.origin}/api/whep?stream_name=${stream}`);
+                document.title = stream;
+                opt.className = "active";
+            } else {
+		        opt.className = "";
+            }
+	    }
+    }
+
+    fetch("/api/streams")
+        .then(r => r.json())
+        .then(r => {
+            const streamList = Object.keys(r);
+            streamList.forEach(stream => {
+                const option = document.createElement("a");
+                option.src = stream;
+                option.text = stream;
+                option.onclick = function () { 
+                    if (this.className !== "active") {
+                        selectStream(stream);
+                    }
+                }
+                menu.appendChild(option);
+            });
+
+            if (streamList.length > 0) {
+                const random = streamList.sort(() => .5 - Math.random());
+                selectStream(random[0]);
+            }
+        });        
     </script>
 </body>
 </html>
