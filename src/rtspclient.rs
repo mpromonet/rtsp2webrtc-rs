@@ -42,6 +42,7 @@ fn avcc_to_annex_b(
         }
         let mut nal_unit = vec![0u8; nal_length];
         data_cursor.read_exact(&mut nal_unit)?;
+        debug!("NALU: {:?}", nal_unit[0]&0x1F);
 
         nal_units.extend_from_slice(&MARKER);
         nal_units.extend_from_slice(&nal_unit);
