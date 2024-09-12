@@ -13,6 +13,7 @@ use clap::Parser;
 use log::{debug, info};
 use std::sync::Arc;
 use serde_json::json;
+use serde::Deserialize;
 use webrtc::{
     api::{interceptor_registry::register_default_interceptors, APIBuilder},
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
@@ -36,7 +37,10 @@ struct Opts {
     url: url::Url,
 
     #[clap(short)]
-    transport: Option<String>,    
+    transport: Option<String>,   
+
+    #[arg(long, default_value = "stun:stun.l.google.com:19302")]
+    stunurl: String,     
 }
 
 
@@ -72,7 +76,7 @@ async fn main() {
 
     info!("start actix web server");
     HttpServer::new( move || {
-        App::new().app_data(web::Data::new(AppContext::new(api.clone(), streams.clone())))
+        App::new().app_data(web::Data::new(AppContext::new(api.clone(), streams.clone(), opts.stunurl.clone())))
             .service(version)
             .service(whep)
             .service(web::redirect("/", "/index.html"))
@@ -95,13 +99,18 @@ async fn version() -> HttpResponse {
     HttpResponse::Ok().json(data)
 }
 
+#[derive(Deserialize)]
+struct WhepQuery {
+    stream_name: String,
+}
+
 #[post("/api/whep")]
-async fn whep(bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
+async fn whep(query: web::Query<WhepQuery>, bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
 
     let ctx = data.get_ref();
     let downstream_cfg = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+            urls: vec![ctx.stunurl.clone()],
             ..Default::default()
         }],
         ..Default::default()
@@ -109,7 +118,8 @@ async fn whep(bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
 
     let downstream_conn = Arc::new(ctx.api.new_peer_connection(downstream_cfg).await.unwrap());
 
-    let stream = Arc::clone(&ctx.streams.get("video").unwrap());
+    let stream_name = &query.stream_name;
+    let stream = Arc::clone(&ctx.streams.get(stream_name).unwrap());
     let sender = downstream_conn
         .add_track(stream.track.clone() as Arc<dyn TrackLocal + Send + Sync>)
         .await.unwrap();

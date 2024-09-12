@@ -2041,6 +2041,7 @@ dependencies = [
  "futures",
  "log",
  "retina",
+ "serde",
  "serde_json",
  "tokio",
  "url",

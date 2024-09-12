@@ -15,13 +15,15 @@ use crate::streamdef::StreamsDef;
 pub struct AppContext {
     pub api: Arc<API>,
     pub streams: HashMap<String,Arc<StreamsDef>>,
+    pub stunurl: String,
 }
 
 impl AppContext {
-    pub fn new(api: Arc<API>, streams: HashMap<String,Arc<StreamsDef>>) -> Self {
+    pub fn new(api: Arc<API>, streams: HashMap<String,Arc<StreamsDef>>, stunurl: String) -> Self {
         Self {
             api: api.clone(),
             streams: streams.clone(),
+            stunurl: stunurl.clone(),
         }
     }
 }
