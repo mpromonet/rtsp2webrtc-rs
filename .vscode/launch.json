@@ -9,7 +9,7 @@
             "request": "launch",
             "name": "Debug",
             "program": "${workspaceFolder}/target/debug/rtsp2webrtc-rs",
-            "args": ["--url", "rtsp://211.132.61.124/axis-media/media.amp"],
+            "args": ["-c", "config.json"],
             "cwd": "${workspaceFolder}"
         }
     ]
