@@ -8,7 +8,7 @@
 ** -------------------------------------------------------------------------*/
 
 use actix_files::Files;
-use actix_web::{get, post, web, App, HttpServer, HttpResponse};
+use actix_web::{get, post, delete, web, App, HttpServer, HttpResponse};
 use anyhow::Error;
 use clap::Parser;
 use log::{debug, info};
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 use webrtc::{
     api::{interceptor_registry::register_default_interceptors, APIBuilder},
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
@@ -102,7 +103,8 @@ async fn main() {
             .service(version)
             .service(streams)
             .service(logger_level)            
-            .service(whep)
+            .service(whep_post)
+            .service(whep_delete)
             .service(web::redirect("/", "/index.html"))
             .service(Files::new("/", "./www"))
     })
@@ -171,12 +173,12 @@ async fn logger_level(query: web::Query<HashMap<String, String>>) -> HttpRespons
 }
 
 #[derive(Deserialize)]
-struct WhepQuery {
+struct WhepPostQuery {
     stream_name: String,
 }
 
 #[post("/api/whep")]
-async fn whep(query: web::Query<WhepQuery>, bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
+async fn whep_post(query: web::Query<WhepPostQuery>, bytes: web::Bytes, data: web::Data<AppContext>) -> HttpResponse {
 
     let ctx = data.get_ref();
     let downstream_cfg = RTCConfiguration {
@@ -196,6 +198,7 @@ async fn whep(query: web::Query<WhepQuery>, bytes: web::Bytes, data: web::Data<A
         .add_track(stream.track.clone() as Arc<dyn TrackLocal + Send + Sync>)
         .await.unwrap();
     
+    let downstream_conn_clone = Arc::clone(&downstream_conn);
     tokio::spawn(async move {
         let mut rtcp_buf = vec![0u8; 1500];
         while let Ok((_, _)) = sender.read(&mut rtcp_buf).await {}
@@ -237,9 +240,39 @@ async fn whep(query: web::Query<WhepQuery>, bytes: web::Bytes, data: web::Data<A
         }
     });
 
+    // Generate a unique peerid
+    let peer_id = Uuid::new_v4().to_string();
+
+    // Store the connection
+    let mut connections = ctx.connections.lock().unwrap();
+    connections.insert(peer_id.clone(), downstream_conn_clone);
+    info!("registered peerid: {}", peer_id);
+
     HttpResponse::Ok()
         .content_type("application/sdp")
-        .append_header(("Location", "/api/whep?peerid"))
+        .append_header(("Location", "/api/whep?peerid=".to_owned() + &peer_id))
         .append_header(("Access-Control-Expose-Headers","Location"))
         .body(answer.sdp.clone())
+}
+
+#[derive(Deserialize)]
+struct WhepDeleteQuery {
+    peer_id: String,
+}
+
+#[delete("/api/whep")]
+async fn whep_delete(query: web::Query<WhepDeleteQuery>, data: web::Data<AppContext>) -> HttpResponse {
+    let ctx = data.get_ref();
+    let peer_id = &query.peer_id;
+
+    info!("unregistered peerid: {}", peer_id);
+
+    let mut connections = ctx.connections.lock().unwrap();
+    if let Some(conn) = connections.get(peer_id) {
+        conn.close().await.unwrap();
+        connections.remove(peer_id);
+        HttpResponse::Ok().json("Connection removed")
+    } else {
+        HttpResponse::NotFound().json("Connection not found")
+    }
 }

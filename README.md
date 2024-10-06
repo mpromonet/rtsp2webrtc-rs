@@ -13,5 +13,5 @@ cargo build
 Test
 ---
 ```
-cargo run -- --url rtsp://211.132.61.124/axis-media/media.amp
+cargo run -- -c config.json
 ```

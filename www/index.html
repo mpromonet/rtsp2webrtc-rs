@@ -33,7 +33,7 @@
             background-color: #4CAF50;
             color: black;
         }
-        #video {
+        #content {
             height: 100%;
             flex: auto;
             overflow-y: auto;
@@ -53,8 +53,9 @@
 <body>
     <header>
         <nav id="menu"></nav>
-    </header>     
-    <whep-video id="video" muted autoplay></whep-video>
+    </header>
+    <div id="content">
+    </div>
     <footer>
         <a href="https://github.com/mpromonet/rtsp2webrtc-rs">rtsp2webrtc-rs</a>
         <div id="version"></div>
@@ -65,7 +66,14 @@
         function selectStream(stream) {
         for (const opt of menu.getElementsByTagName('a')) {
             if (opt.src === stream) {
+                while (content.firstChild) {
+                    content.removeChild(content.firstChild);
+                }
+                const video = document.createElement("whep-video");
+                video.setAttribute("autoplay", "true");
+                video.setAttribute("muted", "true");
                 video.setAttribute("src", `${location.origin}/api/whep?stream_name=${stream}`);
+                content.appendChild(video);
                 document.title = stream;
                 opt.className = "active";
             } else {

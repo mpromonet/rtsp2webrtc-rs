@@ -10,12 +10,14 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use webrtc::api::API;
+use webrtc::peer_connection::RTCPeerConnection;
 use crate::streamdef::StreamsDef;
 
 pub struct AppContext {
     pub api: Arc<API>,
     pub streams: HashMap<String,Arc<Mutex<StreamsDef>>>,
     pub stunurl: String,
+    pub connections: Arc<Mutex<HashMap<String, Arc<RTCPeerConnection>>>>,
 }
 
 impl AppContext {
@@ -24,6 +26,7 @@ impl AppContext {
             api: api.clone(),
             streams: streams.clone(),
             stunurl: stunurl.clone(),
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -34,6 +37,7 @@ impl Clone for AppContext {
             api: self.api.clone(),
             streams: self.streams.clone(),
             stunurl: self.stunurl.clone(),
+            connections: self.connections.clone(),
         }
     }
 }
