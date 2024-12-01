@@ -103,6 +103,7 @@ async fn main() {
             .service(version)
             .service(streams)
             .service(logger_level)            
+            .service(peers)
             .service(whep_post)
             .service(whep_delete)
             .service(web::redirect("/", "/index.html"))
@@ -133,6 +134,20 @@ async fn streams(data: web::Data<appcontext::AppContext>) -> HttpResponse {
         data[key] = json!({
             "name": streamdef.lock().unwrap().name,
             "url": streamdef.lock().unwrap().url.as_str(),
+        });
+    }
+
+    HttpResponse::Ok().json(data)
+}
+
+#[get("/api/peers")]
+async fn peers(data: web::Data<appcontext::AppContext>) -> HttpResponse {
+    let ctx = data.get_ref();
+    let mut data = json!({});
+    let connections = ctx.connections.lock().unwrap();
+    for (key, conn) in connections.iter() {
+        data[key] = json!({
+            "state": conn.ice_connection_state().to_string(),
         });
     }
 
@@ -268,9 +283,9 @@ async fn whep_delete(query: web::Query<WhepDeleteQuery>, data: web::Data<AppCont
     info!("unregistered peerid: {}", peer_id);
 
     let mut connections = ctx.connections.lock().unwrap();
-    if let Some(conn) = connections.get(peer_id) {
+
+    if let Some(conn) = connections.remove(peer_id) {
         conn.close().await.unwrap();
-        connections.remove(peer_id);
         HttpResponse::Ok().json("Connection removed")
     } else {
         HttpResponse::NotFound().json("Connection not found")
