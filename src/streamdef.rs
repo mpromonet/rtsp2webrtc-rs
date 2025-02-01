@@ -15,11 +15,17 @@ use webrtc::api::media_engine::MIME_TYPE_H264;
 use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::media::Sample;
 
+#[derive(Clone)]
+pub struct DataFrame {
+    pub metadata: serde_json::Value,
+    pub data: Vec<u8>,
+}
+
 pub struct StreamsDef {
     pub name: String,
     pub url: url::Url,
-    pub tx: broadcast::Sender<Vec<u8>>,
-    pub rx: broadcast::Receiver<Vec<u8>>,
+    pub tx: broadcast::Sender<DataFrame>,
+    pub rx: broadcast::Receiver<DataFrame>,
     pub track: Arc<TrackLocalStaticSample>,
 }
 
@@ -37,7 +43,7 @@ impl Clone for StreamsDef {
 
 impl StreamsDef {
     pub fn new(name: String, url: url::Url) -> Self {
-        let (tx, rx) = broadcast::channel::<Vec<u8>>(1024*1024);
+        let (tx, rx) = broadcast::channel::<DataFrame>(1024*1024);
 
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
@@ -57,10 +63,10 @@ impl StreamsDef {
         let self_clone = self.clone();
         tokio::spawn(async move {
             let mut rx = self_clone.rx.resubscribe();
-            while let Ok(data) = rx.recv().await {
-                debug!("Received data:{}\n", data.len());
+            while let Ok(frame) = rx.recv().await {
+                debug!("Received metadata:{:?} data:{}\n", frame.metadata, frame.data.len());
                 let sample = Sample {
-                    data: data.into(),
+                    data: frame.data.into(),
                     ..Default::default()};
                 self_clone.track.write_sample(&sample).await.unwrap();
             }    
