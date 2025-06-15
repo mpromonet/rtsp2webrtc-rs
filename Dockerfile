@@ -32,4 +32,4 @@ COPY ./config.json .
 COPY ./www ./www/
 
 ENTRYPOINT ["./rtsp2web-rs"]
-CMD ["-C", "config.json", "-k", "key.pem", "-c", "cert.pem"]
+CMD ["-c", "config.json"]
