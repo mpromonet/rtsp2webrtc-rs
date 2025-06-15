@@ -120,7 +120,7 @@ async fn main() {
 
 #[get("/api/version")]
 async fn version() -> HttpResponse {
-    let version = env!("GIT_VERSION");
+    let version = option_env!("GIT_VERSION").unwrap_or("unknown");
     let data = json!(version);
 
     HttpResponse::Ok().json(data)
