@@ -41,7 +41,7 @@ jobs:
       - name: Publish artifacts and release
         uses: houseabsolute/actions-rust-release@v0
         with:
-          executable-name: rtsp2web-rs
+          executable-name: rtsp2webrtc-rs
           changes-file: ""
           extra-files: |
                         config.json
