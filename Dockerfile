@@ -31,5 +31,5 @@ COPY --from=builder /workspace/target/release/rtsp2webrtc-rs .
 COPY ./config.json .
 COPY ./www ./www/
 
-ENTRYPOINT ["./rtsp2web-rs"]
+ENTRYPOINT ["./rtsp2webrtc-rs"]
 CMD ["-c", "config.json"]
