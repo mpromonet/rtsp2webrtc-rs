@@ -28,8 +28,6 @@ FROM rust:slim
 WORKDIR /app
 
 COPY --from=builder /workspace/target/release/rtsp2webrtc-rs .
-COPY ./key.pem .
-COPY ./cert.pem .
 COPY ./config.json .
 COPY ./www ./www/
 
